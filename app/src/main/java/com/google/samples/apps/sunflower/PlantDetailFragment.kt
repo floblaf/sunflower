@@ -16,25 +16,35 @@
 
 package com.google.samples.apps.sunflower
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.app.ShareCompat
+import androidx.core.util.Consumer
+import androidx.core.view.doOnLayout
 import androidx.core.widget.NestedScrollView
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.window.WindowLayoutInfo
+import androidx.window.WindowManager
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
+import com.google.samples.apps.sunflower.backend.MidScreenFoldBackend
 import com.google.samples.apps.sunflower.data.Plant
 import com.google.samples.apps.sunflower.databinding.FragmentPlantDetailBinding
 import com.google.samples.apps.sunflower.utilities.InjectorUtils
 import com.google.samples.apps.sunflower.viewmodels.PlantDetailViewModel
+import com.google.samples.apps.sunflower.views.SplitLayout
+import java.util.concurrent.Executor
 
 /**
  * A fragment representing a single Plant detail screen.
@@ -42,6 +52,8 @@ import com.google.samples.apps.sunflower.viewmodels.PlantDetailViewModel
 class PlantDetailFragment : Fragment() {
 
     private val args: PlantDetailFragmentArgs by navArgs()
+    private lateinit var windowManager: WindowManager
+    var splitLayout: SplitLayout? = null
 
     private val plantDetailViewModel: PlantDetailViewModel by viewModels {
         InjectorUtils.providePlantDetailViewModelFactory(requireActivity(), args.plantId)
@@ -71,12 +83,12 @@ class PlantDetailFragment : Fragment() {
             var isToolbarShown = false
 
             // scroll change listener begins at Y = 0 when image is fully collapsed
-            plantDetailScrollview.setOnScrollChangeListener(
+            /*plantDetailScrollview.setOnScrollChangeListener(
                 NestedScrollView.OnScrollChangeListener { _, _, scrollY, _, _ ->
 
                     // User scrolled past image to height of toolbar and the title text is
                     // underneath the toolbar, so the toolbar should be shown.
-                    val shouldShowToolbar = scrollY > toolbar.height
+                    val shouldShowToolbar = scrollY > toolbar?.height
 
                     // The new state of the toolbar differs from the previous state; update
                     // appbar and toolbar attributes.
@@ -104,9 +116,15 @@ class PlantDetailFragment : Fragment() {
                     }
                     else -> false
                 }
-            }
+            }*/
         }
         setHasOptionsMenu(true)
+
+        windowManager = WindowManager(requireActivity(), MidScreenFoldBackend())
+        splitLayout = binding.splitLayout
+        binding.root.doOnLayout {
+            splitLayout?.updateWindowLayout(windowManager.windowLayoutInfo)
+        }
 
         return binding.root
     }
@@ -122,7 +140,7 @@ class PlantDetailFragment : Fragment() {
                 getString(R.string.share_text_plant, plant.name)
             }
         }
-        val shareIntent = ShareCompat.IntentBuilder.from(activity)
+        val shareIntent = ShareCompat.IntentBuilder.from(activity!!)
             .setText(shareText)
             .setType("text/plain")
             .createChooserIntent()
