@@ -18,18 +18,27 @@ package com.google.samples.apps.sunflower
 
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.util.Consumer
 import androidx.core.view.doOnLayout
 import androidx.databinding.DataBindingUtil.setContentView
+import androidx.window.WindowLayoutInfo
 import androidx.window.WindowManager
 import com.google.samples.apps.sunflower.databinding.ActivityGardenPortraitBinding
 import com.google.samples.apps.sunflower.views.SplitLayout
+import java.util.concurrent.Executor
 
 class GardenPortraitActivity : AppCompatActivity() {
 
     private lateinit var windowManager: WindowManager
+    private val layoutStateChangeCallback = LayoutStateChangeCallback()
+    private val handler = Handler(Looper.getMainLooper())
+    private val mainThreadExecutor = Executor { r: Runnable -> handler.post(r) }
+    private lateinit var splitLayout: SplitLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,9 +49,26 @@ class GardenPortraitActivity : AppCompatActivity() {
 
     override fun onCreateView(parent: View?, name: String, context: Context, attrs: AttributeSet): View? {
         parent?.doOnLayout {
-            findViewById<SplitLayout>(R.id.split_layout).updateWindowLayout(windowManager.windowLayoutInfo)
+            splitLayout = findViewById(R.id.split_layout)
+            splitLayout.updateWindowLayout(windowManager.windowLayoutInfo)
         }
 
         return super.onCreateView(parent, name, context, attrs)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        windowManager.registerLayoutChangeCallback(mainThreadExecutor, layoutStateChangeCallback)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        windowManager.unregisterLayoutChangeCallback(layoutStateChangeCallback)
+    }
+
+    inner class LayoutStateChangeCallback : Consumer<WindowLayoutInfo> {
+        override fun accept(newLayoutInfo: WindowLayoutInfo) {
+            splitLayout.updateWindowLayout(newLayoutInfo)
+        }
     }
 }
