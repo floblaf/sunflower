@@ -16,30 +16,43 @@
 
 package com.google.samples.apps.sunflower
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.app.ShareCompat
+import androidx.core.util.Consumer
 import androidx.core.widget.NestedScrollView
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.window.DeviceState
+import androidx.window.WindowManager
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
 import com.google.samples.apps.sunflower.data.Plant
 import com.google.samples.apps.sunflower.databinding.FragmentPlantDetailBinding
 import com.google.samples.apps.sunflower.utilities.InjectorUtils
 import com.google.samples.apps.sunflower.viewmodels.PlantDetailViewModel
+import kotlinx.android.synthetic.main.fragment_plant_detail.view.*
+import java.util.concurrent.Executor
 
 /**
  * A fragment representing a single Plant detail screen.
  */
 class PlantDetailFragment : Fragment() {
+
+    private lateinit var windowManager: WindowManager
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val mainThreadExecutor = Executor { r: Runnable -> handler.post(r) }
 
     private val args: PlantDetailFragmentArgs by navArgs()
 
@@ -53,7 +66,7 @@ class PlantDetailFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val binding = DataBindingUtil.inflate<FragmentPlantDetailBinding>(
-            inflater, R.layout.fragment_plant_detail, container, false
+                inflater, R.layout.fragment_plant_detail, container, false
         ).apply {
             viewModel = plantDetailViewModel
             lifecycleOwner = viewLifecycleOwner
@@ -63,7 +76,7 @@ class PlantDetailFragment : Fragment() {
                         hideAppBarFab(fab)
                         plantDetailViewModel.addPlantToGarden()
                         Snackbar.make(root, R.string.added_plant_to_garden, Snackbar.LENGTH_LONG)
-                            .show()
+                                .show()
                     }
                 }
             }
@@ -72,24 +85,24 @@ class PlantDetailFragment : Fragment() {
 
             // scroll change listener begins at Y = 0 when image is fully collapsed
             plantDetailScrollview.setOnScrollChangeListener(
-                NestedScrollView.OnScrollChangeListener { _, _, scrollY, _, _ ->
+                    NestedScrollView.OnScrollChangeListener { _, _, scrollY, _, _ ->
 
-                    // User scrolled past image to height of toolbar and the title text is
-                    // underneath the toolbar, so the toolbar should be shown.
-                    val shouldShowToolbar = scrollY > toolbar.height
+                        // User scrolled past image to height of toolbar and the title text is
+                        // underneath the toolbar, so the toolbar should be shown.
+                        val shouldShowToolbar = scrollY > toolbar.height
 
-                    // The new state of the toolbar differs from the previous state; update
-                    // appbar and toolbar attributes.
-                    if (isToolbarShown != shouldShowToolbar) {
-                        isToolbarShown = shouldShowToolbar
+                        // The new state of the toolbar differs from the previous state; update
+                        // appbar and toolbar attributes.
+                        if (isToolbarShown != shouldShowToolbar) {
+                            isToolbarShown = shouldShowToolbar
 
-                        // Use shadow animator to add elevation if toolbar is shown
-                        appbar.isActivated = shouldShowToolbar
+                            // Use shadow animator to add elevation if toolbar is shown
+                            appbar.isActivated = shouldShowToolbar
 
-                        // Show the plant name if toolbar is shown
-                        toolbarLayout.isTitleEnabled = shouldShowToolbar
+                            // Show the plant name if toolbar is shown
+                            toolbarLayout.isTitleEnabled = shouldShowToolbar
+                        }
                     }
-                }
             )
 
             toolbar.setNavigationOnClickListener { view ->
@@ -105,10 +118,28 @@ class PlantDetailFragment : Fragment() {
                     else -> false
                 }
             }
+
+            handlePosture(windowManager.deviceState)
+
+            windowManager.registerDeviceStateChangeCallback(mainThreadExecutor, Consumer {
+                handlePosture(it)
+            })
         }
         setHasOptionsMenu(true)
 
         return binding.root
+    }
+
+    private fun FragmentPlantDetailBinding.handlePosture(it: DeviceState) {
+        when (it.posture) {
+            DeviceState.POSTURE_FLIPPED -> root.flipper.displayedChild = 1
+            else -> root.flipper.displayedChild = 0
+        }
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        windowManager = WindowManager(context, null)
     }
 
     // Helper function for calling a share functionality.
